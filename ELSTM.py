@@ -10,7 +10,7 @@ class ElmanLSTMCell(tf.keras.layers.Layer):
         self.output_size = output_size # define output size
         self.state_size = [self.hidden_size, self.hidden_size]  # [hidden_state, cell_state]
     
-    def build(self, input_shape):
+    def build(self, input_shape):   
         # Input weights (W_f_y, W_i_y, W_cbar_y, W_o_y) for all 4 gates
         self.W_input = self.add_weight(shape=(self.input_size, 4 * self.hidden_size),
                                  initializer='glorot_uniform',
@@ -35,6 +35,8 @@ class ElmanLSTMCell(tf.keras.layers.Layer):
         self.b_x = self.add_weight(shape=(self.output_size,),
                                  initializer='zeros',
                                  name='b_x')
+        
+        super().build(self.input_size)
     
     def call(self, inputs, states):
         # Previous hidden state and previous cell state
@@ -105,10 +107,10 @@ hidden_size = 50
 single_cell = ElmanLSTMCell(dim_y, hidden_size, dim_x) # single layer init
 mutiple_cells = [
     ElmanLSTMCell(dim_y, hidden_size, dim_x),
-    ElmanLSTMCell(dim_y, hidden_size, dim_x),
+    ElmanLSTMCell(dim_x, hidden_size, dim_x),
 ]
 stack_cell = StackedRNNCells(mutiple_cells) # stack mutiple layer init
-rnn = RNN(single_cell, 
+rnn = RNN(stack_cell, 
           return_sequences=True, 
           input_shape=(None, dim_y)) # call rnn constructor
 criterion = tf.keras.losses.MeanSquaredError() # Use Mean Squared Error as loss function

@@ -35,6 +35,8 @@ class JordanLSTMCell(tf.keras.layers.Layer):
         self.b_x = self.add_weight(shape=(self.output_size,),
                                  initializer='zeros',
                                  name='b_x')
+        
+        super().build(self.input_size)
     
     def call(self, inputs, states):
         # Previous estimated state and previous cell state
@@ -107,10 +109,10 @@ hidden_size = 50
 single_cell = JordanLSTMCell(dim_y, hidden_size, dim_x)
 mutiple_cells = [
     JordanLSTMCell(dim_y, hidden_size, dim_x),
-    JordanLSTMCell(dim_y, hidden_size, dim_x),
+    JordanLSTMCell(dim_x, hidden_size, dim_x),
 ]
 stack_cell = StackedRNNCells(mutiple_cells) # stack mutiple layer init
-rnn = RNN(single_cell, 
+rnn = RNN(stack_cell, 
           return_sequences=True, 
           input_shape=(None, dim_y)) # call rnn constructor
 criterion = tf.keras.losses.MeanSquaredError() # Use Mean Squared Error as loss function

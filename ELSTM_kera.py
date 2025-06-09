@@ -49,7 +49,8 @@ hidden_size = 50
 dim_y = 1
 dim_x = 3
 rnn = Sequential([
-    LSTM(dim_x, return_sequences=True, input_shape=(None, dim_y))
+    LSTM(dim_x, return_sequences=True, input_shape=(None, dim_y)),
+    Dense(dim_x)
 ])
 criterion = tf.keras.losses.MeanSquaredError() # Use Mean Squared Error as loss function
 

@@ -1,15 +1,30 @@
 1. Keras LSTM Result: 
---Test MSE = 0.2180
+1 layer:
+--Test MSE = 0.2180 
 --stop at epoch 772
+
+2 layers:
+--Test MSE = 0.0009
+--stop at epoch 975
 
 ########################
 
 2. ELSTM Result: 
+1 layer:
 --Test MSE = 0.0270
 --stop at epoch 353
+
+2 layers:
+--Test MSE = 0.0366
+--stop at epoch 308
 
 ########################
 
 3. JLSTM Result: 
+1 layer:
 --Test MSE = 0.0633
 --stop at epoch 640
+
+2 layers:
+--Test MSE = 0.0695
+--stop at epoch 361
