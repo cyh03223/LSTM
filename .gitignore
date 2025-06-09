@@ -1,0 +1,9 @@
+# ignores all .md and .npz files
+.md
+.npz
+
+# ignores env folders
+env/
+
+# does not ignore the README.md file
+!README.md
