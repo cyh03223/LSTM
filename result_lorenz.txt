@@ -1,0 +1,15 @@
+1. Keras LSTM Result: 
+--Test MSE = 0.2180
+--stop at epoch 772
+
+########################
+
+2. ELSTM Result: 
+--Test MSE = 0.0270
+--stop at epoch 353
+
+########################
+
+3. JLSTM Result: 
+--Test MSE = 0.0633
+--stop at epoch 640
