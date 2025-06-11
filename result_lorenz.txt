@@ -11,20 +11,20 @@
 
 2. ELSTM Result: 
 1 layer:
---Test MSE = 0.0270
---stop at epoch 353
+--Test MSE = 0.0003
+--stop at epoch 247
 
 2 layers:
---Test MSE = 0.0366
---stop at epoch 308
+--Test MSE = 0.0084
+--stop at epoch 765
 
 ########################
 
 3. JLSTM Result: 
 1 layer:
---Test MSE = 0.0633
---stop at epoch 640
+--Test MSE = 0.0003
+--stop at epoch 375
 
 2 layers:
---Test MSE = 0.0695
---stop at epoch 361
+--Test MSE = 0.0006
+--stop at epoch 133
