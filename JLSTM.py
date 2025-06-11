@@ -112,7 +112,7 @@ mutiple_cells = [
     JordanLSTMCell(dim_x, hidden_size, dim_x),
 ]
 stack_cell = StackedRNNCells(mutiple_cells) # stack mutiple layer init
-rnn = RNN(single_cell, 
+rnn = RNN(stack_cell, 
           return_sequences=True, 
           input_shape=(None, dim_y)) # call rnn constructor
 criterion = tf.keras.losses.MeanSquaredError() # Use Mean Squared Error as loss function
@@ -122,8 +122,8 @@ init_lr = 1e-1
 min_lr = 1e-2
 min_delta = 1e-3
 factor = 0.5
-patience = 5
-halt_patience = 10
+patience = 3
+halt_patience = 5
 optimizer = tf.keras.optimizers.legacy.Adam(init_lr)
 
 # Training step implementation
