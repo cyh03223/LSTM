@@ -119,6 +119,13 @@ rnn = RNN(single_cell,
           input_shape=(None, dim_y)) # call rnn constructor
 criterion = tf.keras.losses.MeanSquaredError() # Use Mean Squared Error as loss function
 
+# Hyperparameters for composite loss function
+alpha = 0.1
+H = tf.constant([[1.0],     # x-component weight
+                 [1.0],     # y-component weight
+                 [0.0]],    # z-component weight
+                dtype=tf.float32)       # shape (dim_x, dim_y)
+
 # Set up learning rate with factor and patience
 init_lr = 1e-1
 min_lr = 1e-2
@@ -128,16 +135,24 @@ patience = 5
 halt_patience = 10
 optimizer = tf.keras.optimizers.legacy.Adam(init_lr)
 
+# Custom composite loss function
+@tf.function
+def composite_loss(x_true, x_pred, y_true, alpha: float = alpha):
+    mse_states = tf.reduce_mean(tf.square(x_true - x_pred))
+    y_pred = tf.einsum('...i,ij->...j', x_pred, H) 
+    mse_inputs = tf.reduce_mean(tf.square(y_true - y_pred))
+    return alpha * mse_states + (1.0 - alpha) * mse_inputs
+
 # Training step implementation
 @tf.function
 def train_step(x_batch, y_batch):
     input_data = y_batch
-    output_data = x_batch
+    target_x = x_batch
 
     with tf.GradientTape() as tape:
-        outputs = rnn(input_data, training=True)
-        loss = criterion(output_data, outputs)
-
+        pred_x = rnn(input_data, training=True)
+        loss = composite_loss(target_x, pred_x, input_data)
+    
     # Back‑propagate & update all trainable weights
     train_vars = rnn.trainable_variables
     grads = tape.gradient(loss, train_vars)
@@ -149,13 +164,13 @@ def train_step(x_batch, y_batch):
 @tf.function
 def val_step(x_batch, y_batch):
     input_data = y_batch
-    output_data = x_batch
-    outputs = rnn(input_data, training=False)
-    loss = criterion(output_data, outputs)
+    target_x = x_batch
+    pred_x = rnn(input_data, training=False)
+    loss = composite_loss(target_x, pred_x, input_data)
     return loss
 
 # Training loop
-epochs = 15000
+epochs = 50
 best_val = float('inf')
 halt_count = 0  
 wait = 0
