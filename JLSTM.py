@@ -1,8 +1,59 @@
 import numpy as np
 import tensorflow as tf
 import time
+import math
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers import StackedRNNCells, RNN
+
+class OneCycleSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
+    def __init__(self,
+                 initial_lr: float,
+                 max_lr: float,
+                 total_steps: int,
+                 pct_start: float = 0.1,
+                 anneal_strategy: str = 'cos',
+                 name: str = None):
+        super().__init__()
+        if not (0.0 < pct_start < 1.0):
+            raise ValueError("pct_start must be in (0,1)")
+        if anneal_strategy not in ('cos', 'linear'):
+            raise ValueError("anneal_strategy must be 'cos' or 'linear'")
+
+        self.initial_lr = initial_lr
+        self.max_lr = max_lr
+        self.total_steps = total_steps
+        self.pct_start = pct_start
+        self.warmup_steps = pct_start * total_steps
+        self.anneal_strategy = anneal_strategy
+        self.name = name
+
+    def __call__(self, step):
+        step = tf.cast(step, tf.float32)
+        
+        def warmup():
+            return self.initial_lr + (self.max_lr - self.initial_lr) * (step / self.warmup_steps)
+
+        def anneal():
+            progress = (step - self.warmup_steps) / (self.total_steps - self.warmup_steps)
+            if self.anneal_strategy == 'cos':
+                return self.max_lr * 0.5 * (1 + tf.cos(math.pi * progress))
+            else:
+                return self.max_lr - (self.max_lr - self.initial_lr) * progress
+
+        lr = tf.where(step < self.warmup_steps, warmup(), anneal())
+        return tf.where(step > self.total_steps,
+                        tf.constant(self.initial_lr, dtype=tf.float32),
+                        lr)
+
+    def get_config(self):
+        return {
+            "initial_lr": self.initial_lr,
+            "max_lr": self.max_lr,
+            "total_steps": self.total_steps,
+            "pct_start": self.pct_start,
+            "anneal_strategy": self.anneal_strategy,
+            "name": self.name
+        }
 
 class JordanLSTMCell(tf.keras.layers.Layer):
     def __init__(self, input_size, hidden_size, output_size):
@@ -108,7 +159,7 @@ test_dataset  = make_dataset(X_test_norm,  Y_test_norm,  batch_size, shuffle=Fal
 dim_y = 1
 dim_x = 3
 hidden_size = 50
-single_cell = JordanLSTMCell(dim_y, hidden_size, dim_x)
+single_cell = JordanLSTMCell(dim_y, hidden_size, dim_x) # single layer init
 mutiple_cells = [
     JordanLSTMCell(dim_y, hidden_size, dim_x),
     JordanLSTMCell(dim_x, hidden_size, dim_x),
@@ -125,15 +176,6 @@ H = tf.constant([[1.0],     # x-component weight
                  [1.0],     # y-component weight
                  [0.0]],    # z-component weight
                 dtype=tf.float32)       # shape (dim_x, dim_y)
-
-# Set up learning rate with factor and patience
-init_lr = 1e-1
-min_lr = 1e-2
-min_delta = 1e-3
-factor = 0.5
-patience = 5
-halt_patience = 10
-optimizer = tf.keras.optimizers.legacy.Adam(init_lr)
 
 # Custom composite loss function
 @tf.function
@@ -170,10 +212,19 @@ def val_step(x_batch, y_batch):
     return loss
 
 # Training loop
-epochs = 50
+epochs = 15000
+steps_per_epoch = tf.data.experimental.cardinality(train_dataset).numpy()
+total_steps = epochs * steps_per_epoch
+onecycle = OneCycleSchedule(initial_lr=1e-4,
+                            max_lr=1e-3,
+                            total_steps=total_steps,
+                            pct_start=0.1)
+optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=onecycle)
+
+# Set the learning rate schedule
 best_val = float('inf')
 halt_count = 0  
-wait = 0
+halt_patience = 10
 start_train = time.time()
 val_losses = []
 
@@ -197,6 +248,8 @@ for epoch in range(1, epochs + 1):
     val_loss = total_val_loss / val_steps
     
     val_losses.append(val_loss.numpy() if isinstance(val_loss, tf.Tensor) else val_loss)
+    step = optimizer.iterations
+    current_lr = optimizer.learning_rate(step)
     
     if val_loss >= best_val:
         halt_count += 1
@@ -208,20 +261,7 @@ for epoch in range(1, epochs + 1):
         print(f"No more effective epoch at {epoch:03d}: Train MSE = {train_loss:.4f}, Val MSE = {val_loss:.4f}")
         break
     
-    # Apply new learning rate
-    if val_loss < best_val - min_delta:
-        best_val = val_loss
-        wait = 0
-        halt_count = 0
-    else:
-        wait += 1
-        if wait >= patience:
-            # decay the LR
-            new_lr = max(optimizer.learning_rate.numpy() * factor, min_lr)
-            optimizer.learning_rate.assign(new_lr)
-            wait = 0
-
-    print(f"Epoch {epoch:03d}: Train MSE = {train_loss:.4f}, Val MSE = {val_loss:.4f} (LR={optimizer.learning_rate.numpy():.4f})")
+    print(f"Epoch {epoch:03d}: Train MSE = {train_loss:.4f}, Val MSE = {val_loss:.4f} (LR={current_lr.numpy():.4f})")
 
 end_train = time.time()
 print("time taken to train JLSTM:",end_train-start_train)
