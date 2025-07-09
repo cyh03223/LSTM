@@ -4,6 +4,7 @@ import time
 import math
 import matplotlib.pyplot as plt
 from tensorflow.keras.layers import StackedRNNCells, RNN
+import os
 
 class OneCycleSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self,
@@ -221,10 +222,18 @@ onecycle = OneCycleSchedule(initial_lr=1e-4,
                             pct_start=0.1)
 optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=onecycle)
 
+# Set the checkpoint
+checkpoint_dir   = './l_ks_checkpoints_jlstm'
+os.makedirs(checkpoint_dir, exist_ok=True)
+ckpt = tf.train.Checkpoint(rnn=rnn, optimizer=optimizer)
+ckpt_manager = tf.train.CheckpointManager(ckpt,
+                                          checkpoint_dir,
+                                          max_to_keep=1)
+
 # Set the learning rate schedule
 best_val = float('inf')
 halt_count = 0  
-halt_patience = 10
+halt_patience = 5
 start_train = time.time()
 val_losses = []
 
@@ -246,16 +255,19 @@ for epoch in range(1, epochs + 1):
         total_val_loss += val_loss
         val_steps += 1
     val_loss = total_val_loss / val_steps
-    
     val_losses.append(val_loss.numpy() if isinstance(val_loss, tf.Tensor) else val_loss)
+    
+    # Learning rate for logging
     step = optimizer.iterations
-    current_lr = optimizer.learning_rate(step)
+    current_lr = optimizer.learning_rate(step) if callable(optimizer.learning_rate) else optimizer.learning_rate
     
     if val_loss >= best_val:
         halt_count += 1
     else:
         best_val = val_loss
         halt_count = 0
+        save_path = ckpt_manager.save()
+        print(f"Saved new best checkpoint: {save_path}")
     
     if halt_count >= halt_patience:
         print(f"No more effective epoch at {epoch:03d}: Train MSE = {train_loss:.4f}, Val MSE = {val_loss:.4f}")
@@ -266,14 +278,21 @@ for epoch in range(1, epochs + 1):
 end_train = time.time()
 print("time taken to train JLSTM:",end_train-start_train)
 
+# Restore the best model if available
+if ckpt_manager.latest_checkpoint:
+    ckpt.restore(ckpt_manager.latest_checkpoint)
+    print(f"Restored the best model from {ckpt_manager.latest_checkpoint}")
+
 # Eval loop
 start_eval = time.time()
 total_test_loss = 0.0
 test_steps = 0
+
 for x_batch, y_batch in test_dataset:
     t_loss = val_step(x_batch, y_batch)
     total_test_loss += t_loss
     test_steps += 1
+    
 print(f"Test  MSE = {total_test_loss / test_steps:.4f}")
 end_eval = time.time()
 print("Time taken to test JLSTM:", end_eval - start_eval)
