@@ -588,6 +588,14 @@ def run_on_gpu_3():
     
     return all_estimates_split
 
+@tf.function
+def composite_loss(x_true, x_pred, y_true, alpha: float = 0.1):
+    H = tf.constant([[1.0], [1.0], [0.0]], dtype=tf.float32) 
+    mse_states = tf.reduce_mean(tf.square(x_true - x_pred))
+    y_pred = tf.einsum('...i,ij->...j', x_pred, H) 
+    mse_inputs = tf.reduce_mean(tf.square(y_true - y_pred))
+    return alpha * mse_states + (1.0 - alpha) * mse_inputs
+
 def run_on_gpu_4():
     #ekf implementation
     start_time = time.time()
@@ -612,6 +620,13 @@ def run_on_gpu_4():
             estimated_states.append(est)
 
         all_estimates.append(np.array(estimated_states))
+        
+        x_true = tf.convert_to_tensor(true_states[1:], dtype=tf.float32)
+        x_pred = tf.convert_to_tensor(estimated_states, dtype=tf.float32)
+        y_true = tf.convert_to_tensor(observations[1:], dtype=tf.float32)
+
+        loss = composite_loss(x_true, x_pred, y_true, alpha=0.1)
+        print(f"Sequence {seq_idx} EKF Composite Loss: {loss.numpy()}")
 
     all_estimates = np.array(all_estimates)
     end_time = time.time()
