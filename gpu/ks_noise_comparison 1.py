@@ -40,7 +40,7 @@ Y_data_array = np.empty((num_records, seq_length, dim_y))
 # Noise parameters
 c_p = 0.0001
 c_q = 0.0001
-c_r = 100 ####### same thing, very important #######
+c_r = 100
 P = c_p * np.eye(dim_x)
 Q = c_q * np.eye(dim_x)
 R = c_r * np.eye(dim_y)
@@ -127,6 +127,11 @@ test_output_data = tf.convert_to_tensor(X_test_norm, dtype=tf.float32)
 
 test_input_data_diff_ic=tf.convert_to_tensor(Y_test_diff_ic_norm, dtype=tf.float32)
 test_output_data_diff_ic=tf.convert_to_tensor(X_test_diff_ic_norm, dtype=tf.float32)
+
+H_tf = tf.convert_to_tensor(H, dtype=tf.float32)
+
+def h(x):
+    return tf.matmul(x, tf.transpose(H_tf))
 
 
 # Define the Jordan LSTM model 
@@ -288,14 +293,14 @@ def run_on_gpu_1(val_i_data):
     
     # Training the model
     num_epochs = 100
-    for epoch in range(num_epochs2):
+    for epoch in range(num_epochs):
         # Iterate over batches
         for batch in train_dataset:
             input_data, output_data = batch
             # Forward pass
             with tf.GradientTape() as tape:
                 outputs = model(input_data)
-                loss = 0.5 * (alpha_P * criterion(output_data[:, 0, :], outputs[:, 0, :]) + alpha_Q * criterion2(output_data[:, 1:,:], outputs[:, 1:,:]) + alpha_R * criterion(input_data[:, 1:, :], h(outputs[:,1:,:]))) 
+                loss = 0.5 * (alpha_P * criterion(output_data[:, 0, :], outputs[:, 0, :]) + alpha_Q * criterion(output_data[:, 1:,:], outputs[:, 1:,:]) + alpha_R * criterion(input_data[:, 1:, :], h(outputs[:,1:,:]))) 
                                 
             # Backward and optimize
             gradients = tape.gradient(loss, model.trainable_variables)
@@ -307,7 +312,7 @@ def run_on_gpu_1(val_i_data):
         val_loss = 0.5 * (alpha_P * criterion(val_output_data[:, 0, :], val_outputs[:, 0, :]) + alpha_Q * criterion(val_output_data[:, 1:,:], val_outputs[:, 1:,:]) + alpha_R * criterion(val_i_data[:, 1:, :], h(val_outputs[:,1:,:]))) 
     
         # Print and check for early stopping
-        print(f'Epoch [{epoch}], Loss: {loss2.numpy():.4f}, Val Loss: {val_loss2.numpy():.4f}')
+        print(f'Epoch [{epoch}], Loss: {loss.numpy():.4f}, Val Loss: {val_loss.numpy():.4f}')
             
         if val_loss < best_val_loss:
             best_val_loss = val_loss
@@ -513,8 +518,8 @@ if __name__ == "__main__":
         predicted_output_jlstm=(predicted_output_jlstm*std_x)+mean_x
         predicted_output_jlstm_diff_ic=(predicted_output_jlstm_diff_ic*std_x)+mean_x
         np.savez(f"ks_result_cr_{str(c_r).replace('.', '_')}_l_jlstm.npz", predicted_jlstm_data=predicted_output_jlstm, predicted_jlstm_data_diff_ic=predicted_output_jlstm_diff_ic)
-        print("Test error (denorm.):", np.mean((predicted_output_jlstm[:,1:,:]-X_test[:,1:,:])**2))
-        print("Test error diff. ic. (denorm.):", np.mean((predicted_output_jlstm_diff_ic[:,1:,:]-X_test_diff_ic[:,1:,:])**2))
+        print("Test error (denorm.):", np.mean((predicted_output_jlstm-X_test[:,1:,:])**2))
+        print("Test error diff. ic. (denorm.):", np.mean((predicted_output_jlstm_diff_ic-X_test_diff_ic[:,1:,:])**2))
     elif args.model_id == 2:
         predicted_output_jlstm, predicted_output_jlstm_diff_ic=run_on_gpu_2(val_input_data)
         predicted_output_jlstm=(predicted_output_jlstm*std_x)+mean_x
