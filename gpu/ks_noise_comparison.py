@@ -136,23 +136,28 @@ def h(x):
 
 # Define the Jordan LSTM model 
 class JordanLSTM(tf.keras.Model):
-    def __init__(self, input_size, hidden_size, output_size):
-        super(JordanLSTM, self).__init__()
+    def __init__(self, input_size, hidden_size, output_size, name="jordan_lstm"):
+        super(JordanLSTM, self).__init__(name=name)
         self.hidden_size = hidden_size
         self.output_size = output_size
-        self.Wxh = self.add_weight(shape=(input_size, hidden_size * 4),
+        self.Wxh = self.add_weight(name="Wxh",
+                                   shape=(input_size, hidden_size * 4),
                                    initializer=tf.keras.initializers.GlorotUniform(),
                                    trainable=True)
-        self.Wyh = self.add_weight(shape=(output_size, hidden_size * 4),
+        self.Wyh = self.add_weight(name="Wyh",
+                                   shape=(output_size, hidden_size * 4),
                                    initializer=tf.keras.initializers.GlorotUniform(),
                                    trainable=True)
-        self.bh = self.add_weight(shape=(hidden_size * 4,),
+        self.bh = self.add_weight(name="bh",
+                                  shape=(hidden_size * 4,),
                                   initializer=tf.zeros_initializer(),
                                   trainable=True)
-        self.by = self.add_weight(shape=(output_size,),
+        self.by = self.add_weight(name="by",
+                                  shape=(output_size,),
                                   initializer=tf.zeros_initializer(),
                                   trainable=True)
-        self.Why = self.add_weight(shape=(hidden_size, output_size),
+        self.Why = self.add_weight(name="Why",
+                                   shape=(hidden_size, output_size),
                                    initializer=tf.keras.initializers.Orthogonal(),
                                    trainable=True)
 
