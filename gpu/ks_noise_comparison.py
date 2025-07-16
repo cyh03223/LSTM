@@ -40,7 +40,7 @@ Y_data_array = np.empty((num_records, seq_length, dim_y))
 # Noise parameters
 c_p = 0.0001
 c_q = 0.0001
-c_r = 100
+c_r = 10 ### Change this value to adjust the noise level
 P = c_p * np.eye(dim_x)
 Q = c_q * np.eye(dim_x)
 R = c_r * np.eye(dim_y)
@@ -297,7 +297,7 @@ def run_on_gpu_1(val_i_data):
     ckpt_manager = tf.train.CheckpointManager(ckpt, f'./ks_checkpoints_l_jlstm_cr_{str(c_r).replace(".", "_")}', max_to_keep=1)
     
     # Training the model
-    num_epochs = 100
+    num_epochs = 300
     for epoch in range(num_epochs):
         # Iterate over batches
         for batch in train_dataset:
@@ -385,7 +385,7 @@ def run_on_gpu_2(val_i_data):
     model2 = JordanLSTM(dim_y, hidden_size2, dim_x)
     criterion2 = tf.keras.losses.MeanSquaredError()
 
-    initial_lr = 1e-3  # Initial learning rate
+    initial_lr = 1e-4  # Initial learning rate ###
     min_lr = 1e-5  # Minimum learning rate
     lr_factor = 0.5  # Factor by which learning rate will be reduced
     optimizer2 = tf.keras.optimizers.Adam(learning_rate=initial_lr)
@@ -394,7 +394,7 @@ def run_on_gpu_2(val_i_data):
     ckpt_manager2 = tf.train.CheckpointManager(ckpt2, f'./ks_checkpoints_jlstm_cr_{str(c_r).replace(".", "_")}', max_to_keep=1)
     
     # Training the model
-    num_epochs2 = 100
+    num_epochs2 = 300 ###
     for epoch in range(num_epochs2):
         # Iterate over batches
         for batch in train_dataset:
@@ -464,8 +464,9 @@ def run_on_gpu_2(val_i_data):
      
     predicted_output_jlstm_diff_ic=predicted_output_jlstm_diff_ic.numpy()
     
-    print("Test loss using mean", np.mean((predicted_output_jlstm[:,1:,:]-test_output_data[:,1:,:])**2))
-    print("Test loss using mean for different i.c.", np.mean((predicted_output_jlstm_diff_ic[:,1:,:]-test_output_data_diff_ic[:,1:,:])**2))
+    # Print test losses
+    print("Test loss using mean", np.mean((predicted_output_jlstm[:,:,:]-test_output_data[:,1:,:])**2))
+    print("Test loss using mean for different i.c.", np.mean((predicted_output_jlstm_diff_ic[:,:,:]-test_output_data_diff_ic[:,1:,:])**2))
     
     return predicted_output_jlstm,predicted_output_jlstm_diff_ic
 
@@ -523,8 +524,8 @@ if __name__ == "__main__":
         predicted_output_jlstm=(predicted_output_jlstm*std_x)+mean_x
         predicted_output_jlstm_diff_ic=(predicted_output_jlstm_diff_ic*std_x)+mean_x
         np.savez(f"ks_result_cr_{str(c_r).replace('.', '_')}_l_jlstm.npz", predicted_jlstm_data=predicted_output_jlstm, predicted_jlstm_data_diff_ic=predicted_output_jlstm_diff_ic)
-        print("Test error (denorm.):", np.mean((predicted_output_jlstm-X_test[:,1:,:])**2))
-        print("Test error diff. ic. (denorm.):", np.mean((predicted_output_jlstm_diff_ic-X_test_diff_ic[:,1:,:])**2))
+        print("Test error (denorm.):", np.mean((predicted_output_jlstm[:,1:,:] - X_test[:,1:,:])**2))
+        print("Test error diff. ic. (denorm.):", np.mean((predicted_output_jlstm_diff_ic[:,1:,:] - X_test_diff_ic[:,1:,:])**2))
     elif args.model_id == 2:
         predicted_output_jlstm, predicted_output_jlstm_diff_ic=run_on_gpu_2(val_input_data)
         predicted_output_jlstm=(predicted_output_jlstm*std_x)+mean_x
